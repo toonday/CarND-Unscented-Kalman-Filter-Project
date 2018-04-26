@@ -79,6 +79,12 @@ public:
   virtual ~UKF();
 
   /**
+   * Normalize Vector
+   * @param reference to vector, index position to normalize
+   */
+  void NormalizeAngle(VectorXd &vec, int index);
+
+  /**
    * ProcessMeasurement
    * @param meas_package The latest measurement data of either radar or laser
    */
@@ -90,6 +96,12 @@ public:
    * @param delta_t Time between k and k+1 in s
    */
   void Prediction(double delta_t);
+  
+  /**
+   * Updates the state and the state covariance matrix irrespective of measurement type
+   * @param meas_package The measurement at k+1
+   */
+  void Update(VectorXd _z,  bool isLidar, bool isRadar);
 
   /**
    * Updates the state and the state covariance matrix using a laser measurement
