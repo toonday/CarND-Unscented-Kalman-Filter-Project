@@ -25,10 +25,10 @@ UKF::UKF() {
   P_ = MatrixXd(5, 5);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 30;
+  std_a_ = 2.0;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 30;
+  std_yawdd_ = 0.5;
   
   //DO NOT MODIFY measurement noise values below these are provided by the sensor manufacturer.
   // Laser measurement noise standard deviation position1 in m
@@ -278,12 +278,43 @@ void UKF::Prediction(double delta_t) {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::Update(VectorXd z,  bool isLidar, bool isRadar) {
+  bool reduceComputeForLidar = true;
+  
   // set measurement dimension
   // lidar can measure p_x and p_y
   // radar can measure rho, phi, and rho_dot
   int n_z;
   if( isLidar ) {
-	  n_z = 2;
+	  if( reduceComputeForLidar ) {
+		  //measurement matrix
+		  MatrixXd H_ = MatrixXd(2, 5);
+		  H_ << 1, 0, 0, 0, 0,
+		        0, 1, 0, 0, 0;
+
+		  //measurement covariance
+		  MatrixXd R_ = MatrixXd(2, 2);
+		  R_ << 0.0225, 0,
+		        0, 0.0225;
+
+		  VectorXd z_pred = H_ * x_;
+		  VectorXd y = z - z_pred;
+		  MatrixXd Ht = H_.transpose();
+		  MatrixXd S = H_ * P_ * Ht + R_;
+		  MatrixXd Si = S.inverse();
+		  MatrixXd PHt = P_ * Ht;
+		  MatrixXd K = PHt * Si;
+
+		  //new estimate
+		  x_ = x_ + (K * y);
+		  long x_size = x_.size();
+		  MatrixXd I = MatrixXd::Identity(x_size, x_size);
+		  P_ = (I - K * H_) * P_;
+	  
+		  return;
+	  }
+	  else {
+		  n_z = 2;
+	  }
   }
   else if( isRadar ) {
 	  n_z = 3;
@@ -299,7 +330,8 @@ void UKF::Update(VectorXd z,  bool isLidar, bool isRadar) {
 		  Zsig(1,i) = Xsig_pred_(1,i);
 	  }
 	  else if( isRadar ) {
-		  Zsig(0,i) = sqrt(pow(Xsig_pred_(0,i),2) + pow(Xsig_pred_(1,i),2));
+		  float capped_sqrt = std::max(0.001, sqrt(pow(Xsig_pred_(0,i),2) + pow(Xsig_pred_(1,i),2)));
+		  Zsig(0,i) = capped_sqrt;
 		  Zsig(1,i) = atan2(Xsig_pred_(1,i), Xsig_pred_(0,i));
 		  Zsig(2,i) = ((Xsig_pred_(0,i)*cos(Xsig_pred_(3,i))*Xsig_pred_(2,i)) + (Xsig_pred_(1,i)*sin(Xsig_pred_(3,i))*Xsig_pred_(2,i))) / Zsig(0,i);
 	  }
